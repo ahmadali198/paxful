@@ -1,0 +1,14 @@
+.left{
+    max-width: 40%;
+    width: 100%;
+}
+.right{
+    max-width: 60%;
+    width: 100%;
+}
+.main{
+    max-width: 900px;
+    width: 100%;
+    min-height: 503px;
+    margin: auto;
+}
