@@ -1,18 +1,16 @@
-import { useState, useEffect } from "react";
+// pages/forgot-password.js
+import { useState } from "react";
 import { useRouter } from "next/router";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
-const UpdatePassword = () => {
-  const [formData, setFormData] = useState({
-    email: "",
-    recoveryCode: "",
-    password: "",
-    confirmPassword: "",
-  });
+const ForgotPassword = () => {
+  const [formData, setFormData] = useState({ email: "", recoveryCode: "", newPassword: "" });
+  const [step, setStep] = useState(1); // Track the current step
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
   const router = useRouter();
 
-  // Handle form data changes
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({
@@ -21,147 +19,136 @@ const UpdatePassword = () => {
     }));
   };
 
-  // Basic password strength validation
-  const isPasswordStrong = (password) => {
-    const regex = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d@$!%*?&]{8,}$/;
-    return regex.test(password);
-  };
-
-  // Handle form submission
-  const handleSubmit = async (e) => {
+  // Step 1: Send Recovery Code
+  const handleSendRecoveryCode = async (e) => {
     e.preventDefault();
-
-    const { email, recoveryCode, password, confirmPassword } = formData;
-
-    // Check if the recovery code is provided
-    if (!recoveryCode) {
-      toast.error("Please enter your recovery code.");
+    if (!/\S+@\S+\.\S+/.test(formData.email)) {
+      toast.error("Please enter a valid email address");
       return;
     }
-
-    // Check if the password is provided
-    if (!password) {
-      toast.error("Please enter a new password.");
-      return;
-    }
-
-    // Check if passwords match
-    if (password !== confirmPassword) {
-      toast.error("Passwords do not match");
-      return;
-    }
-
-    // Check if password is strong
-    if (!isPasswordStrong(password)) {
-      toast.error("Password must be at least 8 characters long and contain both letters and numbers");
-      return;
-    }
-
     try {
-      const response = await fetch("/api/updatepassword", {
+      const response = await fetch("/api/sendrecoverycode", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password, recoveryCode }),
+        body: JSON.stringify({ email: formData.email }),
       });
-
       const data = await response.json();
-
       if (response.ok) {
-        toast.success("Password updated successfully!");
-        
-        // Reset form data
-        setFormData({
-          email: "",
-          recoveryCode: "",
-          password: "",
-          confirmPassword: "",
-        });
-
-        // Redirect to login page after 2 seconds
-        setTimeout(() => {
-          router.push("/login");
-        }, 2000);
+        setMessage("Recovery code sent successfully.");
+        toast.success("Recovery code sent successfully! Check your inbox.");
+        setStep(2); // Move to verification step
       } else {
-        toast.error(data.error || "Failed to update password.");
+        setError(data.error || "Failed to send recovery code.");
       }
     } catch (err) {
-      console.error("Error updating password:", err);
-      toast.error("Something went wrong. Please try again later.");
+      setError("Something went wrong. Please try again later.");
     }
   };
 
-  // Add event listener for the button click
-  useEffect(() => {
-    const updateButton = document.getElementById("updateButton");
-    if (updateButton) {
-      updateButton.addEventListener("click", function() {
-        // Redirect to login page after button click
-        window.location.href = "/login"; // Adjust the URL if needed
+  // Step 2: Verify Recovery Code
+  const handleVerifyCode = async (e) => {
+    e.preventDefault();
+    try {
+      const response = await fetch("/api/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: formData.email, recoveryCode: formData.recoveryCode }),
       });
-    }
-
-    // Cleanup the event listener on component unmount
-    return () => {
-      if (updateButton) {
-        updateButton.removeEventListener("click", function() {
-          window.location.href = "/login";
-        });
+      const data = await response.json();
+      if (response.ok) {
+        setMessage("Code verified. You can now reset your password.");
+        setStep(3); // Move to reset password step
+      } else {
+        setError(data.error || "Invalid recovery code.");
       }
-    };
-  }, []);
+    } catch (err) {
+      setError("Something went wrong. Please try again later.");
+    }
+  };
+
+  // Step 3: Reset Password
+  const handleResetPassword = async (e) => {
+    e.preventDefault();
+    try {
+      const response = await fetch("/api/resetpassword", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: formData.email, newPassword: formData.newPassword }),
+      });
+      if (response.ok) {
+        toast.success("Password reset successfully!");
+        router.push("/login"); // Redirect to login
+      } else {
+        setError("Failed to reset password.");
+      }
+    } catch (err) {
+      setError("Something went wrong. Please try again later.");
+    }
+  };
 
   return (
     <div className="min-h-screen flex justify-center items-center bg-gray-100">
       <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
-        <h2 className="text-2xl font-bold mb-6">Update Password</h2>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <input
-            type="email"
-            name="email"
-            placeholder="Enter your email"
-            className="w-full p-3 border rounded-lg"
-            value={formData.email}
-            onChange={handleChange}
-            required
-          />
-          <input
-            type="text"
-            name="recoveryCode"
-            placeholder="Enter recovery code"
-            className="w-full p-3 border rounded-lg"
-            value={formData.recoveryCode}
-            onChange={handleChange}
-            required
-          />
-          <input
-            type="password"
-            name="password"
-            placeholder="Enter new password"
-            className="w-full p-3 border rounded-lg"
-            value={formData.password}
-            onChange={handleChange}
-            required
-          />
-          <input
-            type="password"
-            name="confirmPassword"
-            placeholder="Confirm new password"
-            className="w-full p-3 border rounded-lg"
-            value={formData.confirmPassword}
-            onChange={handleChange}
-            required
-          />
-          <button
-            type="submit"
-            id="updateButton"
-            className="w-full bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700"
-          >
-            Update Password
-          </button>
-        </form>
+        <h2 className="text-2xl font-bold mb-6">Forgot Password</h2>
+        {message && <p className="text-green-500 mb-4">{message}</p>}
+        {error && <p className="text-red-500 mb-4">{error}</p>}
+        
+        {/* Step 1: Request Recovery Code */}
+        {step === 1 && (
+          <form onSubmit={handleSendRecoveryCode} className="space-y-4">
+            <input
+              type="email"
+              name="email"
+              placeholder="Enter your email"
+              className="w-full p-3 border rounded-lg"
+              value={formData.email}
+              onChange={handleChange}
+              required
+            />
+            <button type="submit" className="w-full bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700">
+              Send Recovery Code
+            </button>
+          </form>
+        )}
+
+        {/* Step 2: Verify Recovery Code */}
+        {step === 2 && (
+          <form onSubmit={handleVerifyCode} className="space-y-4">
+            <input
+              type="text"
+              name="recoveryCode"
+              placeholder="Enter recovery code"
+              className="w-full p-3 border rounded-lg"
+              value={formData.recoveryCode}
+              onChange={handleChange}
+              required
+            />
+            <button type="submit" className="w-full bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700">
+              Verify Code
+            </button>
+          </form>
+        )}
+
+        {/* Step 3: Reset Password */}
+        {step === 3 && (
+          <form onSubmit={handleResetPassword} className="space-y-4">
+            <input
+              type="password"
+              name="newPassword"
+              placeholder="Enter new password"
+              className="w-full p-3 border rounded-lg"
+              value={formData.newPassword}
+              onChange={handleChange}
+              required
+            />
+            <button type="submit" className="w-full bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700">
+              Reset Password
+            </button>
+          </form>
+        )}
       </div>
     </div>
   );
 };
 
-export default UpdatePassword;
+export default ForgotPassword;
